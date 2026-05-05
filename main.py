@@ -18,6 +18,7 @@ import os
 import sys
 import site
 import warnings
+import onnxruntime
 
 # Fix encoding Unicode cho console Windows (để in emoji không bị lỗi)
 os.environ["PYTHONIOENCODING"] = "utf-8"
@@ -66,6 +67,18 @@ def setup_cuda_path():
                 bin_dir = os.path.join(nvidia_dir, pkg, "bin")
                 if os.path.isdir(bin_dir):
                     os.environ["PATH"] = bin_dir + os.pathsep + os.environ["PATH"]
+                    if hasattr(os, "add_dll_directory"):
+                        try:
+                            os.add_dll_directory(bin_dir)
+                        except OSError:
+                            pass
+
+    # ONNX Runtime 1.21+ khuyến nghị preload CUDA/cuDNN DLL trước khi tạo
+    # session để tránh lỗi thiếu dependency trên Windows.
+    try:
+        onnxruntime.preload_dlls(directory="")
+    except Exception as exc:
+        print(f"[CUDA] preload_dlls failed: {exc}")
 
 
 def main():
