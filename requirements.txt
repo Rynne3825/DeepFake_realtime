@@ -1,0 +1,20 @@
+# =============================================================================
+# Danh sách thư viện phụ thuộc (Dependencies)
+# Cài đặt: pip install -r requirements.txt
+# =============================================================================
+
+# --- Thư viện xử lý ảnh và video ---
+opencv-python>=4.8.0           # Xử lý ảnh, đọc webcam, vẽ hình
+numpy>=1.24.0                  # Tính toán mảng số (nền tảng của mọi xử lý ảnh)
+Pillow>=10.0.0                 # Chuyển đổi ảnh cho giao diện Tkinter
+
+# --- Thư viện AI / Deep Learning ---
+onnxruntime-gpu>=1.16.0        # Chạy mô hình AI (.onnx) trên GPU NVIDIA
+nvidia-cublas-cu12>=12.9.2     # CUDA BLAS runtime cần cho CUDAExecutionProvider
+nvidia-cuda-runtime-cu12>=12.9.79 # CUDA runtime DLL
+nvidia-cudnn-cu12>=9.21.1      # cuDNN runtime cho suy luận ONNX
+nvidia-cufft-cu12>=11.4.1      # CUDA FFT runtime mà ONNX Runtime phụ thuộc
+insightface>=0.7.3             # Phát hiện & nhận diện khuôn mặt (RetinaFace + ArcFace)
+
+# --- Giao diện người dùng ---
+customtkinter>=5.2.0           # Giao diện Tkinter hiện đại (Dark mode)
