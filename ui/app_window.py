@@ -77,6 +77,7 @@ class DeepFakeApp:
         self._source_image: Optional[np.ndarray] = None
         self._is_processing: bool = False
         self._update_job = None
+        self._runtime_signature = None
 
         self._build_ui()
         self._sync_ui_with_globals()
@@ -531,6 +532,7 @@ class DeepFakeApp:
 
         ret, frame = self._webcam.read()
         if ret and frame is not None:
+            prev_runtime_signature = self._get_runtime_signature()
             if globals.live_mirror:
                 frame = cv2.flip(frame, 1)
             if globals.enable_swapper and self._source_face is not None:
@@ -538,7 +540,7 @@ class DeepFakeApp:
             if globals.enable_enhancer:
                 frame = enhance_frame(frame)
             self._display_frame(frame)
-            self._sync_backend_labels()
+            self._sync_backend_labels_if_needed(prev_runtime_signature)
             self._fps_counter.tick()
             fps = self._fps_counter.get_fps()
             color = C["green"] if fps >= 20 else (C["yellow"] if fps >= 10 else C["red"])
@@ -680,6 +682,20 @@ class DeepFakeApp:
         self._runtime_backend_label.configure(
             text=runtime_backend.label,
             fg=C[runtime_backend.color],
+        )
+        self._runtime_signature = self._get_runtime_signature()
+
+    def _sync_backend_labels_if_needed(self, previous_signature=None):
+        current_signature = self._get_runtime_signature()
+        if previous_signature is None:
+            previous_signature = self._runtime_signature
+        if current_signature != previous_signature:
+            self._sync_backend_labels()
+
+    def _get_runtime_signature(self):
+        return tuple(
+            (name, tuple(providers))
+            for name, providers in sorted(globals.runtime_providers.items())
         )
 
     def _on_close(self):

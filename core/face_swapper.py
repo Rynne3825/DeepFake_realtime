@@ -31,22 +31,11 @@ _SWAPPER_LOCK = threading.Lock()
 
 
 def resolve_inswapper_model_path(models_dir: str) -> str:
-    """Chọn model inswapper khả dụng, ưu tiên FP32 rồi fallback sang FP16."""
-    candidate_names = [
-        "inswapper_128.onnx",
-        "inswapper_128_fp16.onnx",
-    ]
-
-    for candidate_name in candidate_names:
-        candidate_path = os.path.join(models_dir, candidate_name)
-        if os.path.exists(candidate_path):
-            return candidate_path
-
-    supported = ", ".join(candidate_names)
-    raise FileNotFoundError(
-        f"Không tìm thấy model inswapper hỗ trợ trong {models_dir}. "
-        f"Các tên được hỗ trợ: {supported}"
-    )
+    """Chỉ dùng model inswapper FP32 tiêu chuẩn."""
+    model_path = os.path.join(models_dir, "inswapper_128.onnx")
+    if os.path.exists(model_path):
+        return model_path
+    raise FileNotFoundError(f"Không tìm thấy model: {model_path}")
 
 
 def get_face_swapper() -> Any:

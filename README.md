@@ -26,12 +26,10 @@ Thư mục `models/` không được đưa lên GitHub. Sau khi clone repo, cầ
 
 Sau đó chép các model sau vào thư mục `models/`:
 
-- `models\inswapper_128.onnx` hoặc `models\inswapper_128_fp16.onnx`
+- `models\inswapper_128.onnx`
 - `models\gfpgan-1024.onnx`
 - `models\GPEN-BFR-256.onnx`
 - `models\GPEN-BFR-512.onnx`
-
-Ứng dụng sẽ ưu tiên `inswapper_128.onnx`. Nếu không có, app sẽ tự fallback sang `inswapper_128_fp16.onnx`.
 
 Nếu thiếu các file trên, ứng dụng sẽ báo `FileNotFoundError`.
 
