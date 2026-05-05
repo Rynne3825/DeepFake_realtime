@@ -18,6 +18,7 @@
 
 import os
 import onnxruntime
+import config.globals as globals
 
 
 def get_execution_providers() -> list:
@@ -121,7 +122,9 @@ def load_with_provider_fallback(loader, provider_attempts: list[list], model_nam
     for providers in provider_attempts:
         try:
             result = loader(providers)
-            print(f"[MODEL-LOADER] {model_name} -> providers: {providers}")
+            runtime_providers = _extract_runtime_providers(result, providers)
+            globals.runtime_providers[model_name] = runtime_providers
+            print(f"[MODEL-LOADER] {model_name} -> providers: {runtime_providers}")
             return result
         except Exception as exc:
             last_error = exc
@@ -130,6 +133,18 @@ def load_with_provider_fallback(loader, provider_attempts: list[list], model_nam
     if last_error is not None:
         raise last_error
     raise RuntimeError(f"Không có provider nào để thử cho {model_name}")
+
+
+def _extract_runtime_providers(result, attempted_providers: list) -> list[str]:
+    if hasattr(result, "get_providers"):
+        return list(result.get_providers())
+    session = getattr(result, "session", None)
+    if session is not None and hasattr(session, "get_providers"):
+        return list(session.get_providers())
+    return [
+        provider[0] if isinstance(provider, tuple) else provider
+        for provider in attempted_providers
+    ]
 
 
 def get_models_directory() -> str:

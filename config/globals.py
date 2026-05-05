@@ -54,6 +54,7 @@ webcam_fps: int = 30                 # FPS webcam theo preset
 # Danh sách Execution Provider (bộ thực thi) để ONNXRuntime biết chạy trên
 # GPU (CUDA) hay CPU. Ví dụ: ['CUDAExecutionProvider', 'CPUExecutionProvider']
 execution_providers: list[str] = []
+runtime_providers: dict[str, list[str]] = {}
 
 # Khóa đồng bộ cho DirectML (chỉ cần trên Windows khi dùng AMD GPU)
 dml_lock = threading.Lock()

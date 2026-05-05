@@ -14,7 +14,7 @@ import numpy as np
 from PIL import Image, ImageTk
 
 import config.globals as globals
-from config.backend_status import describe_backend
+from config.backend_status import describe_backend, describe_runtime_backend
 from config.metadata import name as APP_NAME, version as APP_VERSION
 from config.performance_presets import KEY_TO_LABEL, LABEL_TO_KEY, PRESETS, apply_preset, get_preset
 from utils.fps_counter import FPSCounter
@@ -232,6 +232,11 @@ class DeepFakeApp:
             bg=C["section"], fg=C["dim"], font=F["label"], anchor="w"
         )
         self._backend_label.pack(fill="x", padx=pad, pady=(0, 6))
+        self._runtime_backend_label = tk.Label(
+            s2, text="", justify="left",
+            bg=C["section"], fg=C["dim"], font=("Segoe UI", 8), anchor="w"
+        )
+        self._runtime_backend_label.pack(fill="x", padx=pad, pady=(0, 6))
 
         self._btn_webcam = self._btn(s2, "▶ Webcam (Ctrl+W)",
                                      self._toggle_webcam, C["green"])
@@ -408,10 +413,12 @@ class DeepFakeApp:
         self._source_face = get_one_face(img)
         if self._source_face is None:
             self._update_status("⚠️ Không tìm thấy khuôn mặt!", C["yellow"])
+            self._sync_backend_labels()
             return
 
         self._source_image = img
         self._update_status("✅ Đã tải ảnh nguồn!", C["green"])
+        self._sync_backend_labels()
 
         # Preview giữ đúng tỉ lệ gốc
         h, w = img.shape[:2]
@@ -453,6 +460,7 @@ class DeepFakeApp:
         self._is_processing = True
         self._btn_webcam.configure(text="⏹ Dừng Webcam", bg=C["red"])
         self._update_status("🟢 Webcam đang hoạt động", C["green"])
+        self._sync_backend_labels()
         self._process_loop()
 
     def _stop_webcam(self):
@@ -530,6 +538,7 @@ class DeepFakeApp:
             if globals.enable_enhancer:
                 frame = enhance_frame(frame)
             self._display_frame(frame)
+            self._sync_backend_labels()
             self._fps_counter.tick()
             fps = self._fps_counter.get_fps()
             color = C["green"] if fps >= 20 else (C["yellow"] if fps >= 10 else C["red"])
@@ -644,16 +653,7 @@ class DeepFakeApp:
         self._status_label.configure(text=msg, fg=color or C["dim"])
 
     def _sync_ui_with_globals(self):
-        preset = get_preset(globals.quality_preset)
-        backend = describe_backend(globals.execution_providers)
-        self._var_preset.set(KEY_TO_LABEL[preset.key])
-        self._preset_hint.configure(
-            text=(
-                f"{preset.description}\n"
-                f"{preset.webcam_width}x{preset.webcam_height} @ {preset.webcam_fps} FPS"
-            )
-        )
-        self._backend_label.configure(text=backend.label, fg=C[backend.color])
+        self._sync_backend_labels()
         self._var_enhancer.set(globals.enable_enhancer)
         self._var_many.set(globals.many_faces)
         self._var_masking.set(globals.enable_masking)
@@ -664,6 +664,23 @@ class DeepFakeApp:
         self._var_model.set(globals.enhancer_model)
         self._slider.set(globals.enhancement_strength)
         self._str_val.configure(text=f"{globals.enhancement_strength:.2f}")
+
+    def _sync_backend_labels(self):
+        preset = get_preset(globals.quality_preset)
+        backend = describe_backend(globals.execution_providers)
+        runtime_backend = describe_runtime_backend(globals.runtime_providers)
+        self._var_preset.set(KEY_TO_LABEL[preset.key])
+        self._preset_hint.configure(
+            text=(
+                f"{preset.description}\n"
+                f"{preset.webcam_width}x{preset.webcam_height} @ {preset.webcam_fps} FPS"
+            )
+        )
+        self._backend_label.configure(text=backend.label, fg=C[backend.color])
+        self._runtime_backend_label.configure(
+            text=runtime_backend.label,
+            fg=C[runtime_backend.color],
+        )
 
     def _on_close(self):
         self._stop_webcam()
