@@ -26,15 +26,32 @@ _FACE_SWAPPER: Optional[Any] = None
 _SWAPPER_LOCK = threading.Lock()
 
 
+def resolve_inswapper_model_path(models_dir: str) -> str:
+    """Chọn model inswapper khả dụng, ưu tiên FP32 rồi fallback sang FP16."""
+    candidate_names = [
+        "inswapper_128.onnx",
+        "inswapper_128_fp16.onnx",
+    ]
+
+    for candidate_name in candidate_names:
+        candidate_path = os.path.join(models_dir, candidate_name)
+        if os.path.exists(candidate_path):
+            return candidate_path
+
+    supported = ", ".join(candidate_names)
+    raise FileNotFoundError(
+        f"Không tìm thấy model inswapper hỗ trợ trong {models_dir}. "
+        f"Các tên được hỗ trợ: {supported}"
+    )
+
+
 def get_face_swapper() -> Any:
-    """Tải model hoán đổi khuôn mặt (inswapper_128.onnx) lên bộ nhớ."""
+    """Tải model hoán đổi khuôn mặt lên bộ nhớ."""
     global _FACE_SWAPPER
     with _SWAPPER_LOCK:
         if _FACE_SWAPPER is None:
             models_dir = get_models_directory()
-            model_path = os.path.join(models_dir, "inswapper_128.onnx")
-            if not os.path.exists(model_path):
-                raise FileNotFoundError(f"Không tìm thấy model: {model_path}")
+            model_path = resolve_inswapper_model_path(models_dir)
             providers = build_cuda_provider_config()
             _FACE_SWAPPER = insightface.model_zoo.get_model(
                 model_path, providers=providers

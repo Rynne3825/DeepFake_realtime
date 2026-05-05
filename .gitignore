@@ -9,6 +9,7 @@ __pycache__/
 
 models/*
 !models/.gitkeep
+!models/instructions.txt
 
 .vscode/
 .idea/
