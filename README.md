@@ -31,7 +31,7 @@ Sau đó chép các model sau vào thư mục `models/`:
 - `models\GPEN-BFR-256.onnx`
 - `models\GPEN-BFR-512.onnx`
 
-Ứng dụng sẽ ưu tiên `inswapper_128.onnx`. Nếu không có, app sẽ tự fallback sang `inswapper_128_fp16.onnx`.
+Ứng dụng sẽ ưu tiên `inswapper_128_fp16.onnx`. Nếu không có, app sẽ tự fallback sang `inswapper_128.onnx`.
 
 Nếu thiếu các file trên, ứng dụng sẽ báo `FileNotFoundError`.
 

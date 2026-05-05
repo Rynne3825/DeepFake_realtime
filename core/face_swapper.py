@@ -27,10 +27,10 @@ _SWAPPER_LOCK = threading.Lock()
 
 
 def resolve_inswapper_model_path(models_dir: str) -> str:
-    """Chọn model inswapper khả dụng, ưu tiên FP32 rồi fallback sang FP16."""
+    """Chọn model inswapper khả dụng, ưu tiên FP16 rồi fallback sang FP32."""
     candidate_names = [
-        "inswapper_128.onnx",
         "inswapper_128_fp16.onnx",
+        "inswapper_128.onnx",
     ]
 
     for candidate_name in candidate_names:
