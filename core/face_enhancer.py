@@ -20,7 +20,11 @@ import cv2
 import numpy as np
 import onnxruntime
 
-from core.model_loader import build_cuda_provider_config, get_models_directory
+from core.model_loader import (
+    build_provider_fallback_chain,
+    get_models_directory,
+    load_with_provider_fallback,
+)
 from core.face_analyzer import get_many_faces
 
 _FACE_ENHANCER: Optional[onnxruntime.InferenceSession] = None
@@ -46,11 +50,14 @@ def get_face_enhancer() -> onnxruntime.InferenceSession:
             model_path = os.path.join(get_models_directory(), globals.enhancer_model)
             if not os.path.exists(model_path):
                 raise FileNotFoundError(f"Không tìm thấy model: {model_path}")
-            providers = build_cuda_provider_config()
             options = onnxruntime.SessionOptions()
             options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
-            _FACE_ENHANCER = onnxruntime.InferenceSession(
-                model_path, sess_options=options, providers=providers
+            _FACE_ENHANCER = load_with_provider_fallback(
+                lambda providers: onnxruntime.InferenceSession(
+                    model_path, sess_options=options, providers=providers
+                ),
+                build_provider_fallback_chain(),
+                globals.enhancer_model,
             )
             _FACE_ENHANCER_NAME = globals.enhancer_model
     return _FACE_ENHANCER

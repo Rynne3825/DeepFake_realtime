@@ -87,15 +87,49 @@ def build_cuda_provider_config() -> list:
                 "CUDAExecutionProvider",
                 {
                     "arena_extend_strategy": "kSameAsRequested",
-                    "cudnn_conv_algo_search": "EXHAUSTIVE",
-                    "cudnn_conv_use_max_workspace": "1",
-                    "do_copy_in_default_stream": "0",
+                    "cudnn_conv_algo_search": "DEFAULT",
+                    "cudnn_conv_use_max_workspace": "0",
+                    "do_copy_in_default_stream": "1",
                 }
             ))
         else:
             config.append(provider)
 
     return config
+
+
+def build_provider_fallback_chain() -> list[list]:
+    """Tạo danh sách cấu hình provider để thử lần lượt từ nhanh đến an toàn."""
+    primary = build_cuda_provider_config()
+    cpu_only = ["CPUExecutionProvider"]
+
+    chain = [primary]
+    if primary != cpu_only:
+        chain.append(cpu_only)
+    return chain
+
+
+def load_with_provider_fallback(loader, provider_attempts: list[list], model_name: str):
+    """
+    Thử khởi tạo model/session theo nhiều cấu hình provider.
+
+    Nếu GPU/CUDA lỗi do thiếu VRAM, paging file, hoặc provider DLL, hàm này
+    sẽ tự fallback sang CPU thay vì làm sập toàn bộ ứng dụng ngay lần đầu.
+    """
+    last_error = None
+
+    for providers in provider_attempts:
+        try:
+            result = loader(providers)
+            print(f"[MODEL-LOADER] {model_name} -> providers: {providers}")
+            return result
+        except Exception as exc:
+            last_error = exc
+            print(f"[MODEL-LOADER] {model_name} failed with providers {providers}: {exc}")
+
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError(f"Không có provider nào để thử cho {model_name}")
 
 
 def get_models_directory() -> str:

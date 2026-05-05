@@ -12,7 +12,7 @@ import threading
 from typing import Any, Optional
 import numpy as np
 import insightface
-from core.model_loader import build_cuda_provider_config
+from core.model_loader import build_provider_fallback_chain, load_with_provider_fallback
 
 _FACE_ANALYSER: Optional[Any] = None
 _ANALYSER_LOCK = threading.Lock()
@@ -24,13 +24,20 @@ def get_face_analyser() -> Any:
     if _FACE_ANALYSER is None:
         with _ANALYSER_LOCK:
             if _FACE_ANALYSER is None:
-                providers = build_cuda_provider_config()
-                _FACE_ANALYSER = insightface.app.FaceAnalysis(
-                    name="buffalo_l",
-                    providers=providers,
-                    allowed_modules=["detection", "recognition", "landmark_2d_106"],
+                def _loader(providers):
+                    analyser = insightface.app.FaceAnalysis(
+                        name="buffalo_l",
+                        providers=providers,
+                        allowed_modules=["detection", "recognition", "landmark_2d_106"],
+                    )
+                    analyser.prepare(ctx_id=0, det_size=(640, 640))
+                    return analyser
+
+                _FACE_ANALYSER = load_with_provider_fallback(
+                    _loader,
+                    build_provider_fallback_chain(),
+                    "FaceAnalysis(buffalo_l)",
                 )
-                _FACE_ANALYSER.prepare(ctx_id=0, det_size=(640, 640))
     return _FACE_ANALYSER
 
 

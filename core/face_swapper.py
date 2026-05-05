@@ -17,7 +17,11 @@ import numpy as np
 import insightface
 from insightface.utils import face_align
 
-from core.model_loader import build_cuda_provider_config, get_models_directory
+from core.model_loader import (
+    build_provider_fallback_chain,
+    get_models_directory,
+    load_with_provider_fallback,
+)
 from core.face_analyzer import get_one_face, get_many_faces
 from core.face_masking import create_face_mask, create_mouth_mask
 import config.globals as globals
@@ -52,9 +56,12 @@ def get_face_swapper() -> Any:
         if _FACE_SWAPPER is None:
             models_dir = get_models_directory()
             model_path = resolve_inswapper_model_path(models_dir)
-            providers = build_cuda_provider_config()
-            _FACE_SWAPPER = insightface.model_zoo.get_model(
-                model_path, providers=providers
+            _FACE_SWAPPER = load_with_provider_fallback(
+                lambda providers: insightface.model_zoo.get_model(
+                    model_path, providers=providers
+                ),
+                build_provider_fallback_chain(),
+                os.path.basename(model_path),
             )
     return _FACE_SWAPPER
 
