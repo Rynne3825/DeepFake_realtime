@@ -20,7 +20,11 @@ pip install -r requirements.txt
 
 ## Chuẩn bị model
 
-Thư mục `models/` không được đưa lên GitHub. Sau khi clone repo, cần tự tạo lại thư mục này và chép các model sau vào:
+Thư mục `models/` không được đưa lên GitHub. Sau khi clone repo, cần tự tạo lại thư mục này và tải model từ Google Drive sau:
+
+- [Google Drive models](https://drive.google.com/drive/folders/1VlyLts-t0g9VRqpowmpp8hE5h6j-rgkD?usp=drive_link)
+
+Sau đó chép các model sau vào thư mục `models/`:
 
 - `models\inswapper_128.onnx`
 - `models\gfpgan-1024.onnx`
