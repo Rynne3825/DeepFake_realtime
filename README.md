@@ -22,7 +22,7 @@ pip install -r requirements.txt
 
 Thư mục `models/` không được đưa lên GitHub. Sau khi clone repo, cần tự tạo lại thư mục này và tải model từ Google Drive sau:
 
-- [Google Drive models](https://drive.google.com/drive/folders/1VlyLts-t0g9VRqpowmpp8hE5h6j-rgkD?usp=drive_link)
+- [Google Drive models](https://drive.google.com/drive/folders/1VlyLts-t0g9VRqpowmpp8hE5h6j-rgkD?usp=sharing)
 
 Sau đó chép các model sau vào thư mục `models/`:
 
