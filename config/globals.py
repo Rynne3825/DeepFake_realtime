@@ -3,10 +3,11 @@
 # Mục đích: Lưu trữ các biến trạng thái TOÀN CỤC (Global State) của hệ thống.
 #
 # GIẢI THÍCH CHO BÁO CÁO:
-#   Trong hệ thống thời gian thực (real-time), có 2 luồng (threads) chạy
+#   Trong hệ thống thời gian thực (real-time), có 3 luồng (threads) chạy
 #   song song:
 #     1. Luồng Giao diện (UI Thread) - xử lý nút bấm, hiển thị hình ảnh.
-#     2. Luồng Xử lý AI (Processing Thread) - đọc webcam, hoán đổi khuôn mặt.
+#     2. Luồng Đọc Webcam (Capture Thread) - lấy frame mới nhất từ camera.
+#     3. Luồng Xử lý AI (Processing Thread) - mirror/swap/enhance frame.
 #
 #   Khi người dùng bấm nút "Bật Làm nét" trên giao diện, Luồng UI sẽ thay
 #   đổi biến 'enable_enhancer' trong file này thành True. Luồng Xử lý AI
@@ -41,6 +42,7 @@ enable_enhancer: bool = False        # Bật/tắt tính năng làm nét (GFPGAN
 enhancement_strength: float = 0.45   # Cường độ làm nét (0.1 - 1.0)
 enhancer_model: str = "GPEN-BFR-256.onnx" # Mô hình làm nét được sử dụng
 enable_masking: bool = False         # Bật/tắt tính năng tạo mặt nạ chống lẹm
+use_fp16_inswapper: bool = False     # Bật/tắt sử dụng model FP16 thay vì FP32
 many_faces: bool = False             # Xử lý TẤT CẢ khuôn mặt hay chỉ 1 khuôn mặt?
 live_mirror: bool = True             # Lật gương hình ảnh webcam (giống camera selfie)
 quality_preset: str = DEFAULT_PRESET_KEY # Preset hiệu năng/chất lượng hiện tại

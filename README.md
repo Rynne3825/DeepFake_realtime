@@ -1,6 +1,6 @@
 # DeepFake Realtime
 
-Ứng dụng hoán đổi khuôn mặt theo thời gian thực qua webcam, viết bằng Python với `insightface`, `onnxruntime` và `customtkinter`.
+Ứng dụng hoán đổi khuôn mặt theo thời gian thực qua webcam, viết bằng Python với `insightface`, `onnxruntime`, `tkinter` và `Pillow`.
 
 ## Yêu cầu
 
@@ -27,6 +27,7 @@ Thư mục `models/` không được đưa lên GitHub. Sau khi clone repo, cầ
 Sau đó chép các model sau vào thư mục `models/`:
 
 - `models\inswapper_128.onnx`
+- `models\inswapper_128_fp16.onnx` (tùy chọn, dùng khi bật chế độ FP16)
 - `models\gfpgan-1024.onnx`
 - `models\GPEN-BFR-256.onnx`
 - `models\GPEN-BFR-512.onnx`
@@ -57,6 +58,16 @@ python -c "import onnxruntime; print(onnxruntime.get_available_providers())"
 
 Nếu thấy `CUDAExecutionProvider` trong danh sách thì máy đó chạy GPU NVIDIA được.
 
+## Kiểm thử
+
+Chạy test bằng:
+
+```powershell
+.venv\Scripts\python.exe -m pytest tests -q
+```
+
+Lưu ý: test hiện chủ yếu bao phủ logic Python mức đơn vị và orchestration nhẹ. Chúng không mở webcam thật hay tải model `.onnx` thật.
+
 ## Gửi cho người khác cần những gì?
 
 Người nhận repo cần:
@@ -77,6 +88,7 @@ Người nhận repo cần:
 - `Pillow`
 - `onnxruntime-gpu`
 - `insightface`
-- `customtkinter`
+- `tkinter` (thư viện chuẩn của Python)
+- `customtkinter` hiện vẫn còn trong `requirements.txt`, nhưng giao diện runtime hiện tại dùng `tkinter`
 
 Tệp này chưa bao gồm model `.onnx`, vì model là dữ liệu ngoài repo chứ không phải package Python.

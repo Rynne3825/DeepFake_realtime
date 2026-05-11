@@ -1,5 +1,14 @@
-just put the models in this folder -
+Put model files in this folder.
 
+Required / supported files:
+- inswapper_128.onnx
+- inswapper_128_fp16.onnx (optional, used when FP16 mode is enabled)
+- gfpgan-1024.onnx
+- GPEN-BFR-256.onnx
+- GPEN-BFR-512.onnx
 
-link: model:
+Google Drive:
 https://drive.google.com/drive/folders/1VlyLts-t0g9VRqpowmpp8hE5h6j-rgkD?usp=sharing
+
+Note:
+- InsightFace may also download buffalo_l model cache on first run.

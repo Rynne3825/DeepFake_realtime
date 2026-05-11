@@ -22,7 +22,7 @@ from core.model_loader import (
     get_models_directory,
     load_with_provider_fallback,
 )
-from core.face_analyzer import get_one_face, get_many_faces
+from core.face_analyzer import get_one_face, get_many_faces, _global_tracker
 from core.face_masking import create_face_mask, create_mouth_mask
 import config.globals as globals
 
@@ -31,11 +31,26 @@ _SWAPPER_LOCK = threading.Lock()
 
 
 def resolve_inswapper_model_path(models_dir: str) -> str:
-    """Chỉ dùng model inswapper FP32 tiêu chuẩn."""
-    model_path = os.path.join(models_dir, "inswapper_128.onnx")
-    if os.path.exists(model_path):
-        return model_path
-    raise FileNotFoundError(f"Không tìm thấy model: {model_path}")
+    """Chọn model inswapper dựa trên cấu hình, có fallback an toàn."""
+    candidates = []
+    if globals.use_fp16_inswapper:
+        candidates = ["inswapper_128_fp16.onnx", "inswapper_128.onnx"]
+    else:
+        candidates = ["inswapper_128.onnx", "inswapper_128_fp16.onnx"]
+
+    for candidate in candidates:
+        model_path = os.path.join(models_dir, candidate)
+        if os.path.exists(model_path):
+            return model_path
+
+    raise FileNotFoundError(f"Không tìm thấy model inswapper nào (đã tìm: {candidates})")
+
+
+def reload_face_swapper() -> None:
+    """Xóa model khỏi bộ nhớ để nạp lại khi người dùng đổi cài đặt."""
+    global _FACE_SWAPPER
+    with _SWAPPER_LOCK:
+        _FACE_SWAPPER = None
 
 
 def get_face_swapper() -> Any:
@@ -242,7 +257,7 @@ def process_frame(source_face: Any, frame: np.ndarray) -> np.ndarray:
     GIẢI THÍCH:
         Đây là hàm "điều phối" chính. Nó quyết định:
         - Nếu chế độ many_faces=True: Swap TẤT CẢ mặt trong frame.
-        - Nếu many_faces=False: Chỉ swap 1 mặt chính (gần nhất bên trái).
+        - Nếu many_faces=False: Dùng TrackerCSRT để theo dõi mặt (giảm tải AI) -> Swap 1 mặt chính.
     """
     if globals.many_faces:
         target_faces = get_many_faces(frame)
@@ -250,7 +265,8 @@ def process_frame(source_face: Any, frame: np.ndarray) -> np.ndarray:
             for face in target_faces:
                 frame = swap_face(source_face, face, frame)
     else:
-        target_face = get_one_face(frame)
+        # Sử dụng Face Tracking thay vì Detect mỗi frame
+        target_face = _global_tracker.update(frame, get_one_face)
         if target_face:
             frame = swap_face(source_face, target_face, frame)
 

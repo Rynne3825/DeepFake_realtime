@@ -8,6 +8,8 @@ import ctypes
 import tkinter as tk
 from tkinter import filedialog
 from typing import Optional, Any
+import queue
+import threading
 
 import cv2
 import numpy as np
@@ -78,6 +80,10 @@ class DeepFakeApp:
         self._is_processing: bool = False
         self._update_job = None
         self._runtime_signature = None
+
+        self._frame_queue = queue.Queue(maxsize=2)
+        self._result_queue = queue.Queue(maxsize=2)
+        self._inference_thread = None
 
         self._build_ui()
         self._sync_ui_with_globals()
@@ -260,6 +266,10 @@ class DeepFakeApp:
         self._var_enhancer = tk.BooleanVar(value=False)
         self._chk(s3, "✨ Làm nét khuôn mặt", self._var_enhancer,
                   self._on_enhancer_toggle)
+
+        self._var_fp16 = tk.BooleanVar(value=False)
+        self._chk(s3, "⚡ Dùng FP16 Inswapper", self._var_fp16,
+                  self._on_fp16_toggle)
 
         self._var_many = tk.BooleanVar(value=False)
         self._chk(s3, "👥 Swap nhiều mặt", self._var_many,
@@ -462,12 +472,25 @@ class DeepFakeApp:
         self._btn_webcam.configure(text="⏹ Dừng Webcam", bg=C["red"])
         self._update_status("🟢 Webcam đang hoạt động", C["green"])
         self._sync_backend_labels()
+
+        # Làm sạch hàng đợi
+        while not self._frame_queue.empty():
+            self._frame_queue.get_nowait()
+        while not self._result_queue.empty():
+            self._result_queue.get_nowait()
+
+        self._inference_thread = threading.Thread(target=self._inference_worker, daemon=True)
+        self._inference_thread.start()
+
         self._process_loop()
 
     def _stop_webcam(self):
         self._is_processing = False
         globals.webcam_active = False
         self._webcam.release()
+        if self._inference_thread:
+            self._inference_thread.join(timeout=1.0)
+            self._inference_thread = None
         self._btn_webcam.configure(text="▶ Webcam (Ctrl+W)", bg=C["green"])
         self._update_status("⏸ Webcam đã tắt", C["dim"])
         if self._update_job:
@@ -482,6 +505,12 @@ class DeepFakeApp:
             self._webcam.release()
         except Exception:
             pass
+        if self._inference_thread:
+            try:
+                self._inference_thread.join(timeout=1.0)
+            except:
+                pass
+            self._inference_thread = None
         if self._update_job:
             self.root.after_cancel(self._update_job)
             self._update_job = None
@@ -500,6 +529,8 @@ class DeepFakeApp:
             self._is_processing = False
             globals.webcam_active = False
             self._webcam.release()
+            if self._inference_thread:
+                self._inference_thread.join(timeout=1.0)
         except Exception:
             pass
         if self._update_job:
@@ -513,25 +544,14 @@ class DeepFakeApp:
             pass
         os._exit(0)
 
-    def _process_loop(self):
-        """
-        Vòng lặp xử lý chính: Đọc frame -> AI xử lý -> Hiển thị.
+    def _inference_worker(self):
+        """Luồng background chuyên để xử lý AI không làm đơ UI."""
+        while self._is_processing:
+            try:
+                frame = self._frame_queue.get(timeout=0.05)
+            except queue.Empty:
+                continue
 
-        GIẢI THÍCH CHO BÁO CÁO:
-            Hàm này được gọi lặp lại liên tục bằng root.after() của Tkinter.
-            Mỗi lần gọi, nó thực hiện:
-            1. Đọc 1 khung hình từ Webcam
-            2. (Tùy chọn) Lật gương nếu bật
-            3. Hoán đổi khuôn mặt bằng AI (Face Swap)
-            4. (Tùy chọn) Làm nét bằng GFPGAN
-            5. Hiển thị kết quả lên giao diện
-            6. Cập nhật FPS
-        """
-        if not self._is_processing:
-            return
-
-        ret, frame = self._webcam.read()
-        if ret and frame is not None:
             prev_runtime_signature = self._get_runtime_signature()
             if globals.live_mirror:
                 frame = cv2.flip(frame, 1)
@@ -539,14 +559,45 @@ class DeepFakeApp:
                 frame = process_frame(self._source_face, frame)
             if globals.enable_enhancer:
                 frame = enhance_frame(frame)
-            self._display_frame(frame)
+
+            if self._result_queue.full():
+                try:
+                    self._result_queue.get_nowait()
+                except queue.Empty:
+                    pass
+
+            try:
+                self._result_queue.put((frame, prev_runtime_signature), timeout=0.05)
+            except queue.Full:
+                pass
+
+    def _process_loop(self):
+        """
+        Vòng lặp xử lý chính: Đọc frame -> gửi queue -> nhận kết quả -> hiển thị.
+        """
+        if not self._is_processing:
+            return
+
+        ret, frame = self._webcam.read()
+        if ret and frame is not None:
+            if not self._frame_queue.full():
+                try:
+                    self._frame_queue.put_nowait(frame)
+                except queue.Full:
+                    pass
+
+        try:
+            res_frame, prev_runtime_signature = self._result_queue.get_nowait()
+            self._display_frame(res_frame)
             self._sync_backend_labels_if_needed(prev_runtime_signature)
             self._fps_counter.tick()
             fps = self._fps_counter.get_fps()
             color = C["green"] if fps >= 20 else (C["yellow"] if fps >= 10 else C["red"])
             self._fps_label.configure(text=f"{fps:.1f}", fg=color)
+        except queue.Empty:
+            pass
 
-        self._update_job = self.root.after(1, self._process_loop)
+        self._update_job = self.root.after(10, self._process_loop)
 
     def _display_frame(self, frame: np.ndarray):
         """Hiển thị frame lên giao diện."""
@@ -594,6 +645,14 @@ class DeepFakeApp:
             f"Preset {preset.label}: {preset.webcam_width}x{preset.webcam_height} @ {preset.webcam_fps} FPS",
             C["accent"],
         )
+
+    def _on_fp16_toggle(self):
+        globals.use_fp16_inswapper = self._var_fp16.get()
+        # Nạp lại model
+        from core.face_swapper import reload_face_swapper
+        reload_face_swapper()
+        st = "BẬT" if globals.use_fp16_inswapper else "TẮT"
+        self._update_status(f"Dùng FP16: {st} (Đang nạp lại model...)", C["accent"])
 
     def _on_many_toggle(self):
         globals.many_faces = self._var_many.get()
@@ -658,6 +717,7 @@ class DeepFakeApp:
         self._sync_backend_labels()
         self._var_enhancer.set(globals.enable_enhancer)
         self._var_many.set(globals.many_faces)
+        self._var_fp16.set(globals.use_fp16_inswapper)
         self._var_masking.set(globals.enable_masking)
         self._var_mouth_mask.set(globals.mouth_mask)
         self._mouth_mask_slider.set(globals.mouth_mask_size)
