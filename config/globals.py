@@ -41,6 +41,7 @@ enable_enhancer: bool = False        # Bật/tắt tính năng làm nét (GFPGAN
 enhancement_strength: float = 0.45   # Cường độ làm nét (0.1 - 1.0)
 enhancer_model: str = "GPEN-BFR-256.onnx" # Mô hình làm nét được sử dụng
 enable_masking: bool = False         # Bật/tắt tính năng tạo mặt nạ chống lẹm
+use_fp16_inswapper: bool = False     # Bật/tắt sử dụng model FP16 thay vì FP32
 many_faces: bool = False             # Xử lý TẤT CẢ khuôn mặt hay chỉ 1 khuôn mặt?
 live_mirror: bool = True             # Lật gương hình ảnh webcam (giống camera selfie)
 quality_preset: str = DEFAULT_PRESET_KEY # Preset hiệu năng/chất lượng hiện tại
