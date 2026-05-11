@@ -21,6 +21,39 @@ import onnxruntime
 import config.globals as globals
 
 
+def _tensorrt_runtime_available() -> bool:
+    """Return True if TensorRT runtime DLLs seem available on this machine.
+
+    ONNX Runtime can expose the TensorRT EP even when TensorRT itself is not
+    installed. On Windows this results in noisy errors like missing
+    `nvinfer_10.dll`. We only enable TensorRT EP when the required DLLs are
+    actually present on PATH.
+    """
+    path_value = os.environ.get("PATH", "")
+    if not path_value:
+        return False
+
+    # Common TensorRT runtime DLL names across versions.
+    required_any = {
+        "nvinfer_10.dll",
+        "nvinfer_9.dll",
+        "nvinfer_8.dll",
+        "nvinfer.dll",
+    }
+
+    for folder in path_value.split(os.pathsep):
+        if not folder:
+            continue
+        try:
+            for dll_name in required_any:
+                if os.path.isfile(os.path.join(folder, dll_name)):
+                    return True
+        except OSError:
+            continue
+
+    return False
+
+
 def get_execution_providers() -> list:
     """
     Tự động phát hiện phần cứng và trả về danh sách Execution Provider tối ưu.
@@ -40,6 +73,11 @@ def get_execution_providers() -> list:
     """
     available = onnxruntime.get_available_providers()
     providers = []
+
+    # Ưu tiên 0: TensorRT - hiệu năng cao nhất trên GPU NVIDIA
+    # Chỉ bật nếu TensorRT runtime DLL có sẵn, tránh spam lỗi thiếu nvinfer_*.dll.
+    if "TensorrtExecutionProvider" in available and _tensorrt_runtime_available():
+        providers.append("TensorrtExecutionProvider")
 
     # Ưu tiên 1: GPU NVIDIA (CUDA) - nhanh nhất
     if "CUDAExecutionProvider" in available:
@@ -75,9 +113,9 @@ def build_cuda_provider_config() -> list:
         3. cudnn_conv_use_max_workspace = "1":
            -> Cho phép cuDNN dùng nhiều bộ nhớ hơn để đổi lấy tốc độ nhanh hơn.
            
-        4. do_copy_in_default_stream = "0":
-           -> Tách riêng luồng sao chép dữ liệu (Host ↔ GPU) khỏi luồng tính toán,
-              cho phép chúng chạy song song (overlap) => tăng thông lượng (throughput).
+        4. do_copy_in_default_stream = "1":
+           -> Giữ thao tác copy trong default stream để ổn định hơn với cấu hình
+              runtime hiện tại của dự án.
     """
     providers = get_execution_providers()
     config = []
@@ -88,8 +126,8 @@ def build_cuda_provider_config() -> list:
                 "CUDAExecutionProvider",
                 {
                     "arena_extend_strategy": "kSameAsRequested",
-                    "cudnn_conv_algo_search": "DEFAULT",
-                    "cudnn_conv_use_max_workspace": "0",
+                    "cudnn_conv_algo_search": "EXHAUSTIVE",
+                    "cudnn_conv_use_max_workspace": "1",
                     "do_copy_in_default_stream": "1",
                 }
             ))
@@ -101,12 +139,43 @@ def build_cuda_provider_config() -> list:
 
 def build_provider_fallback_chain() -> list[list]:
     """Tạo danh sách cấu hình provider để thử lần lượt từ nhanh đến an toàn."""
-    primary = build_cuda_provider_config()
-    cpu_only = ["CPUExecutionProvider"]
+    providers = get_execution_providers()
+    chain = []
 
-    chain = [primary]
-    if primary != cpu_only:
+    # Cấu hình TensorRT (nếu có)
+    if "TensorrtExecutionProvider" in providers:
+        trt_config = [
+            (
+                "TensorrtExecutionProvider",
+                {
+                    "trt_engine_cache_enable": True,
+                    "trt_engine_cache_path": os.path.abspath("./trt_cache"),
+                    "trt_fp16_enable": True,
+                }
+            )
+        ]
+        if "CUDAExecutionProvider" in providers:
+            trt_config.append((
+                "CUDAExecutionProvider",
+                {
+                    "arena_extend_strategy": "kSameAsRequested",
+                    "cudnn_conv_algo_search": "EXHAUSTIVE",
+                    "cudnn_conv_use_max_workspace": "1",
+                    "do_copy_in_default_stream": "1",
+                }
+            ))
+        chain.append(trt_config)
+
+    # Cấu hình CUDA
+    primary = build_cuda_provider_config()
+    if primary and primary not in chain:
+        chain.append(primary)
+
+    # Cấu hình CPU
+    cpu_only = ["CPUExecutionProvider"]
+    if cpu_only not in chain:
         chain.append(cpu_only)
+
     return chain
 
 
